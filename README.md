@@ -61,11 +61,11 @@ graph TD;
 
 # Roadmap
 The roadmap for CelcatEditor includes the following milestones:
-[] Import `.ics` files from CELCAT
-[] Parse and process the calendar data
-[] Edit event information
-[] Clean up and standardize event data
-[] Provide an interface for editing events
+- [ ] Import `.ics` files from CELCAT
+- [ ] Parse and process the calendar data
+- [ ] Edit event information
+- [ ] Clean up and standardize event data
+- [ ] Provide an interface for editing events
 
 This roadmap is subject to change as the project evolves and new requirements emerge.
 
