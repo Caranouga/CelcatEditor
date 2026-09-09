@@ -26,7 +26,7 @@ The project is mainly a personal tool, but it may be useful to other students wh
 # Tech Stack
 > This section will be updated as the project progresses.
 
-Language: TDB
+Language: TypeScript
 Calendar Format: iCalendar (`.ics`)
 Target Calendar: Google Calendar
 Source: CELCAT (Université de Bordeaux)
@@ -79,6 +79,10 @@ Contributions are welcome! If you would like to contribute to CelcatEditor, plea
 1. Fork the repository and create a new branch for your feature or bug fix.
 2. Make your changes and ensure that they are well-documented.
 3. Submit a pull request with a clear description of your changes and the problem they solve.
+
+# Acknowledgements
+I would like to thank the following individuals and resources for their contributions to this project:
+- []
 
 # License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
