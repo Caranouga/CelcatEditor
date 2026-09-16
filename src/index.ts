@@ -282,9 +282,7 @@ const parseDescription = (description: string[], modules: string[] = [], sites: 
     return result;
 }
 
-app.get('/ics', async (req: Request, res: Response) => {
-    console.log(`Requête interceptée : ${req.method} ${req.originalUrl}`);
-
+const generateICS = async () => {
     const date = new Date();
     const startDate = `${date.getFullYear()}-${("0" + (date.getMonth() + 1)).slice(-2)}-01`;
     date.setMonth(date.getMonth() + MONTHS_TO_FETCH);
@@ -293,6 +291,8 @@ app.get('/ics', async (req: Request, res: Response) => {
     const data = await requester.getCalendarData(startDate, endDate, 103, "month", [CELCAT_GROUP], 3);
 
     const eventsData: ics.EventAttributes[] = [];
+    const toDoLaterEvents: { [key: string]: ics.EventAttributes } = {};
+    const goodEvents: { [key: string]: ics.EventAttributes } = {};
 
     for(let i = 0; i < data.length; i++){
         const entry = data[i];
@@ -329,7 +329,8 @@ app.get('/ics', async (req: Request, res: Response) => {
 
         let isNotGoodTeacher = false;
         let isNotGoodWeek = false;
-        if(parsedDescription.modules.some(module => module.toLowerCase().includes("4ttv326u"))){
+        let isConcernedEvent = parsedDescription.modules.some(module => module.toLowerCase().includes("4ttv326u"))
+        if(isConcernedEvent){
             console.log(`Event ${entry.id} contains module 4TTV326U, checking for teacher and week...`);
             if(!parsedDescription.teachers.some(teacher => teacher.toLowerCase().includes("holloway ruth"))){
                 isNotGoodTeacher = true;
@@ -344,7 +345,7 @@ app.get('/ics', async (req: Request, res: Response) => {
         // writeFileSync(`./logs/parsedDescription_and_descriptionSplitted_${i}.json`, JSON.stringify({ parsedDescription, descriptionSplitted }, null, 4));
         // writeFileSync(`./logs/parsedDescription_and_descriptionSplitted_${i}.json`, JSON.stringify({ parsedDescription, descriptionSplitted }, null, 4));
 
-        eventsData.push({
+        const datas: ics.EventAttributes = {
             start: [utcStartDate.getUTCFullYear(), utcStartDate.getUTCMonth() + 1, utcStartDate.getUTCDate(), utcStartDate.getUTCHours(), utcStartDate.getUTCMinutes()],
             startInputType: 'utc',
             startOutputType: 'utc',
@@ -352,23 +353,23 @@ app.get('/ics', async (req: Request, res: Response) => {
             endInputType: 'utc',
             endOutputType: 'utc',
             // duration: , // duration ou end
-            title: `${parsedDescription.type ?? "Cours"} - ${parsedDescription.modules[0]} ${isNotGoodTeacher ? "(Mauvais prof)" : ""} ${isNotGoodWeek ? "(Mauvaise semaine)" : ""}`,
+            title: `${parsedDescription.type ?? "Cours"} ${parsedDescription.modules.length === 0 ? "" : `- ${parsedDescription.modules[0]}`} ${isNotGoodTeacher ? "(Mauvais prof)" : ""} ${isNotGoodWeek ? "(Mauvaise semaine)" : ""}`,
             description: `Modules: ${parsedDescription.modules.join(", ")}\nGroupes: ${parsedDescription.groups.join(", ")}\nSalle: ${parsedDescription.room ?? ""}\nProfs.: ${parsedDescription.teachers.join(", ")}\nSemaines: ${parsedDescription.weeks.join(", ")}\nSites: ${parsedDescription.sites.join(", ")}\nReste de la desc.: ${parsedDescription.rest.join(", ")}`,
             location: parsedDescription.room ?? "",
             geo: { lat: 44.80739324228542 , lon: -0.5978698823346441 },
             // url: ,
             status: 'CONFIRMED',
-            organizer: {
-                name: parsedDescription.teachers[0] ?? "",
-                email: await teacherMails[0] ?? "",
-                /*, dir: ,
-                sentBy:*/
-            },
+            // organizer: {
+            //     name: parsedDescription.teachers[0] ?? "",
+            //     email: await teacherMails[0] ?? "",
+            //     /*, dir: ,
+            //     sentBy:*/
+            // },
             // attendees: [{ name: , email: , rsvp: , dir: , partstat: , role: }],
             categories: parsedDescription.type != null ? [parsedDescription.type] : [],
             alarms: [{ action: 'display', description: 'Rappel', trigger: { hours: 1, minutes: 0, before: true } }],
             // productId: ,
-            // uid: ,
+            uid: `${entry.id}@celcat.caradev.fr`,
             // method: ,
             // recurrenceRule: ,
             // recurrenceId: ,
@@ -381,7 +382,23 @@ app.get('/ics', async (req: Request, res: Response) => {
             lastModified: [date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes()],
             calName: `Calendrier ${CELCAT_GROUP}`,
             // htmlContent: 
-        });
+        };
+
+        if(!isConcernedEvent){
+            eventsData.push(datas);
+            continue;
+        }
+
+        if(isNotGoodTeacher || isNotGoodWeek){
+            const bitFlag = (isNotGoodTeacher ? 2 : 0) | (isNotGoodWeek ? 1 : 0);
+
+            toDoLaterEvents[`${utcStartDate.toISOString()}-${utcEndDate.toISOString()}||${datas.uid}||${bitFlag}`] = datas;
+            continue;
+        }else if(!isNotGoodTeacher && !isNotGoodWeek){
+            goodEvents[`${utcStartDate.toISOString()}-${utcEndDate.toISOString()}||${datas.uid}`] = datas;
+        }
+
+        eventsData.push(datas);
 
         //         {
 //   id: '-390114417:-1395446921:7:1652193:6',
@@ -427,10 +444,79 @@ app.get('/ics', async (req: Request, res: Response) => {
 // }
     }
 
+    // Removed all the toDoLaterEvents that are already in goodEvents
+    for (const key in toDoLaterEvents) {
+        for(const goodKey in goodEvents) {
+            console.log(`Comparing ${key} with ${goodKey}`);
+            // The two keys are not the same (only start and end date are the same, but the uid is different)
+            if (key.split('||')[0] === goodKey.split('||')[0]) {
+                console.log(`Removing ${key} from toDoLaterEvents because it is already in goodEvents`);
+                delete toDoLaterEvents[key];
+                break;
+            }
+        }
+    }
+
+    for (const key in toDoLaterEvents) {
+        if (toDoLaterEvents[key] === undefined) continue;
+
+        const [startEnd, uid, bitFlagStr] = key.split('||');
+        const bitFlag = parseInt(bitFlagStr, 10);
+
+        // If we have multiple events with the same start and end data, we keep the one with the lowest bitFlag (0 = good, 1 = bad week, 2 = bad teacher, 3 = both bad week and bad teacher)
+        
+        for (const otherKey in toDoLaterEvents) {
+            if (otherKey === key) continue;
+
+            const [otherStartEnd, otherUid, otherBitFlagStr] = otherKey.split('||');
+            const otherBitFlag = parseInt(otherBitFlagStr, 10);
+
+            if (startEnd === otherStartEnd) {
+                if (otherBitFlag < bitFlag) {
+                    console.log(`Removing ${key} from toDoLaterEvents because ${otherKey} has a lower bitFlag`);
+                    delete toDoLaterEvents[key];
+                    break;
+                } else {
+                    console.log(`Removing ${otherKey} from toDoLaterEvents because ${key} has a lower bitFlag`);
+                    delete toDoLaterEvents[otherKey];
+                }
+            }
+        }
+    }
+
+    for (const key in toDoLaterEvents) {
+        if (toDoLaterEvents[key] === undefined) continue;
+
+        eventsData.push(toDoLaterEvents[key]);
+    }
+
     const { error, value } = ics.createEvents(eventsData);
 
     if (error) {
         console.error('Erreur lors de la création du fichier ICS:', error);
+        return;
+    }
+
+    return value;
+};
+
+app.get('/google/ics', async (req: Request, res: Response) => {
+    const icsData = await generateICS();
+
+    if (!icsData) {
+        res.status(500).send('Erreur lors de la création du fichier ICS');
+        return;
+    }
+
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.send(icsData);
+});
+
+
+app.get('/ics', async (req: Request, res: Response) => {
+    const value = await generateICS();
+
+    if (!value) {
         res.status(500).send('Erreur lors de la création du fichier ICS');
         return;
     }
