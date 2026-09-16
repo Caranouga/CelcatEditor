@@ -340,7 +340,7 @@ const generateICS = async () => {
             }
         }
 
-        const teacherMails = parsedDescription.teachers.map(async (t) => t != null ? await getMailFromTeacherName(t) : "");
+        // const teacherMails = parsedDescription.teachers.map(async (t) => t != null ? await getMailFromTeacherName(t) : "");
 
         // writeFileSync(`./logs/parsedDescription_and_descriptionSplitted_${i}.json`, JSON.stringify({ parsedDescription, descriptionSplitted }, null, 4));
         // writeFileSync(`./logs/parsedDescription_and_descriptionSplitted_${i}.json`, JSON.stringify({ parsedDescription, descriptionSplitted }, null, 4));
