@@ -461,7 +461,7 @@ const generateICS = async () => {
         if (toDoLaterEvents[key] === undefined) continue;
 
         const [startEnd, uid, bitFlagStr] = key.split('||');
-        const bitFlag = parseInt(bitFlagStr, 10);
+        const bitFlag = parseInt(bitFlagStr!, 10);
 
         // If we have multiple events with the same start and end data, we keep the one with the lowest bitFlag (0 = good, 1 = bad week, 2 = bad teacher, 3 = both bad week and bad teacher)
         
@@ -469,7 +469,7 @@ const generateICS = async () => {
             if (otherKey === key) continue;
 
             const [otherStartEnd, otherUid, otherBitFlagStr] = otherKey.split('||');
-            const otherBitFlag = parseInt(otherBitFlagStr, 10);
+            const otherBitFlag = parseInt(otherBitFlagStr!, 10);
 
             if (startEnd === otherStartEnd) {
                 if (otherBitFlag < bitFlag) {
